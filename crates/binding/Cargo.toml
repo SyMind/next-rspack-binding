@@ -15,7 +15,9 @@ rspack_error   = { workspace = true }
 rspack_hook    = { workspace = true }
 rspack_sources = { workspace = true }
 rspack_plugin_externals = { workspace = true }
+
 rustc-hash = { workspace = true }
+regex = { workspace = true }
 
 napi        = { workspace = true, features = ["async", "tokio_rt", "serde-json", "anyhow", "napi7", "compat-mode"] }
 napi-derive = { workspace = true, features = ["compat-mode"] }

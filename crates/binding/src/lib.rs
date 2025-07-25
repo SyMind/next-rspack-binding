@@ -1,5 +1,9 @@
+mod config_shared;
+mod default_transpiled_packages;
+mod handle_externals;
 mod next_externals_plugin;
 mod plugin;
+mod server_external_packages;
 
 use napi::bindgen_prelude::*;
 use rspack_binding_builder_macros::register_plugin;

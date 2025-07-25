@@ -3,16 +3,18 @@ use std::{
   sync::{Arc, LazyLock},
 };
 
+use regex::Regex;
 use rspack_core::{
-  ApplyContext, Compilation, CompilationProcessAssets, CompilerOptions, ExternalItem,
-  ExternalItemFnCtx, ExternalItemFnResult, ExternalItemObject, ExternalItemValue, Plugin,
-  PluginContext,
+  ApplyContext, CompilerOptions, DependencyCategory, ExternalItem, ExternalItemFnCtx,
+  ExternalItemFnResult, ExternalItemObject, ExternalItemValue, Plugin, PluginContext,
+  ResolveOptionsWithDependencyType, ResolveResult,
 };
-use rspack_error::Result;
-use rspack_hook::{plugin, plugin_hook};
+use rspack_error::ToStringResultToRspackResultExt;
+use rspack_hook::plugin;
 use rspack_plugin_externals::ExternalsPlugin;
-use rspack_sources::{ConcatSource, RawSource, SourceExt};
 use rustc_hash::{FxHashMap, FxHashSet};
+
+use crate::{config_shared::NextConfigComplete, handle_externals::ExternalHandler};
 
 const SUPPORTED_NATIVE_MODULES: &[&str] = &["buffer", "events", "assert", "util", "async_hooks"];
 
@@ -85,12 +87,33 @@ async fn handle_webpack_external_for_edge_runtime(
 #[plugin]
 pub struct NextExternalsPlugin {
   compiler_type: String,
+  config: NextConfigComplete,
   builtin_modules: Arc<Vec<String>>,
+  external_handler: Arc<ExternalHandler>,
 }
 
 impl NextExternalsPlugin {
-  pub fn new(compiler_type: String, builtin_modules: Vec<String>) -> Self {
-    Self::new_inner(compiler_type, Arc::new(builtin_modules))
+  pub fn new(
+    compiler_type: String,
+    config: NextConfigComplete,
+    builtin_modules: Vec<String>,
+    opt_out_bundling_package_regex: Regex,
+    final_transpile_packages: Vec<String>,
+    dir: String,
+  ) -> Self {
+    let external_handler = ExternalHandler::new(
+      config.clone(),
+      opt_out_bundling_package_regex,
+      final_transpile_packages,
+      dir,
+    );
+
+    Self::new_inner(
+      compiler_type,
+      config,
+      Arc::new(builtin_modules),
+      Arc::new(external_handler),
+    )
   }
 }
 
@@ -106,7 +129,6 @@ impl Plugin for NextExternalsPlugin {
   ) -> rspack_error::Result<()> {
     let is_client = self.compiler_type == "client";
     let is_edge_server = self.compiler_type == "edge-server";
-    let is_node_server = self.compiler_type == "server";
 
     let external_type = if is_client || is_edge_server {
       "assign".to_string()
@@ -141,16 +163,68 @@ impl Plugin for NextExternalsPlugin {
         vec![ExternalItem::String("next".to_string())]
       }
     } else {
+      let external_handler = self.external_handler.clone();
       self
         .builtin_modules
         .iter()
         .map(|module| ExternalItem::String(module.to_string()))
-        .chain([
-          ExternalItem::Fn(Box::new(move |ctx| {
-            // handle_externals()
-            todo!()
-          })),
-        ])
+        .chain([ExternalItem::Fn(Box::new(move |ctx| {
+          let external_handler = external_handler.clone();
+          Box::pin(async move {
+            let result = external_handler
+              .handle_externals(
+                &ctx.context,
+                &ctx.request,
+                &ctx.dependency_type,
+                ctx.context_info.issuer_layer.as_deref(),
+                move |options: Option<ResolveOptionsWithDependencyType>| {
+                  let first = ctx.resolve_options_with_dependency_type.clone();
+                  let second = options.unwrap_or(ResolveOptionsWithDependencyType {
+                    resolve_options: None,
+                    resolve_to_context: false,
+                    dependency_category: DependencyCategory::Unknown,
+                  });
+
+                  let merged_resolve_options = match second.resolve_options.as_ref() {
+                    Some(second_resolve_options) => match first.resolve_options.as_ref() {
+                      Some(first_resolve_options) => Some(Box::new(
+                        first_resolve_options
+                          .clone()
+                          .merge(*second_resolve_options.clone()),
+                      )),
+                      None => Some(second_resolve_options.clone()),
+                    },
+                    None => first.resolve_options.clone(),
+                  };
+                  let merged_options = ResolveOptionsWithDependencyType {
+                    resolve_options: merged_resolve_options,
+                    resolve_to_context: first.resolve_to_context,
+                    dependency_category: first.dependency_category,
+                  };
+                  let resolver = ctx.resolver_factory.get(merged_options);
+
+                  Box::new(move |context: String, request: String| {
+                    let resolver = resolver.clone();
+                    Box::pin(async move {
+                      let resolve_result = resolver
+                        .resolve(&Path::new(&context), &request)
+                        .await
+                        .to_rspack_result()?;
+                      Ok(match resolve_result {
+                        ResolveResult::Resource(resource) => Some(resource.path.into_string()),
+                        ResolveResult::Ignored => None,
+                      })
+                    })
+                  })
+                },
+              )
+              .await?;
+            Ok(ExternalItemFnResult {
+              external_type: None,
+              result: result.map(ExternalItemValue::String),
+            })
+          })
+        }))])
         .collect::<Vec<_>>()
     };
 
