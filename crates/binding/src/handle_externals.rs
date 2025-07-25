@@ -186,11 +186,7 @@ impl ExternalHandler {
     request: &str,
     dependency_type: &str,
     layer: Option<&str>,
-    get_resolve: impl Fn(
-      Option<ResolveOptionsWithDependencyType>,
-    ) -> Box<
-      dyn Fn(String, String) -> Pin<Box<dyn Future<Output = rspack_error::Result<Option<String>>>>>,
-    >,
+    get_resolve: GetResolveFn,
   ) -> rspack_error::Result<Option<String>> {
     // We need to externalize internal requests for files intended to
     // not be bundled.
@@ -431,9 +427,10 @@ impl EsmExternalsConfig {
   }
 }
 
-type ResolveFn =
-  Box<dyn Fn(&str, &str) -> Result<(Option<String>, bool), Box<dyn std::error::Error>>>;
-type GetResolveFn = Box<dyn Fn(&ResolveOptionsWithDependencyType) -> ResolveFn>;
+type ResolveFn = Box<
+  dyn Fn(String, String) -> Pin<Box<dyn Future<Output = rspack_error::Result<(Option<String>, bool)>>>>,
+>;
+type GetResolveFn = Box<dyn Fn(Option<ResolveOptionsWithDependencyType>) -> ResolveFn>;
 type IsLocalCallbackFn = Box<dyn Fn(&str) -> Option<String>>;
 
 pub async fn resolve_external(

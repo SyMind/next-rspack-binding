@@ -177,7 +177,7 @@ impl Plugin for NextExternalsPlugin {
                 &ctx.request,
                 &ctx.dependency_type,
                 ctx.context_info.issuer_layer.as_deref(),
-                move |options: Option<ResolveOptionsWithDependencyType>| {
+                Box::new(move |options| {
                   let first = ctx.resolve_options_with_dependency_type.clone();
                   let second = options.unwrap_or(ResolveOptionsWithDependencyType {
                     resolve_options: None,
@@ -211,12 +211,25 @@ impl Plugin for NextExternalsPlugin {
                         .await
                         .to_rspack_result()?;
                       Ok(match resolve_result {
-                        ResolveResult::Resource(resource) => Some(resource.path.into_string()),
-                        ResolveResult::Ignored => None,
+                        ResolveResult::Resource(resource) => {
+                          let is_esm = if resource.path.ends_with(".js") {
+                            resource.description_data.is_some_and(|description_data| {
+                              if let Some(object) =  description_data.json().as_object() {
+                                object.get("type").and_then(|v| v.as_str()) == Some("module")
+                              } else {
+                                false
+                              }
+                            })
+                          } else {
+                            resource.path.ends_with(".mjs")
+                          };
+                          (Some(resource.path.into_string()), is_esm)
+                        }
+                        ResolveResult::Ignored => (None, false),
                       })
                     })
                   })
-                },
+                }),
               )
               .await?;
             Ok(ExternalItemFnResult {
