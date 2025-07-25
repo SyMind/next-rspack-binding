@@ -1,13 +1,13 @@
 mod config_shared;
-mod default_transpiled_packages;
 mod handle_externals;
 mod next_externals_plugin;
 mod plugin;
-mod server_external_packages;
 
 use napi::bindgen_prelude::*;
 use rspack_binding_builder_macros::register_plugin;
 use rspack_core::BoxPlugin;
+
+use crate::next_externals_plugin::NextExternalsPlugin;
 
 #[macro_use]
 extern crate napi_derive;
@@ -41,5 +41,5 @@ register_plugin!("NextExternalsPlugin", |_env: Env, options: Unknown<'_>| {
     .into_utf8()?
     .as_str()?
     .to_string();
-  Ok(Box::new(plugin::MyBannerPlugin::new(banner)) as BoxPlugin)
+  Ok(Box::new(NextExternalsPlugin::new(banner)) as BoxPlugin)
 });

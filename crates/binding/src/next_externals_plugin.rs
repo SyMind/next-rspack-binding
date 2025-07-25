@@ -170,14 +170,14 @@ impl Plugin for NextExternalsPlugin {
         .map(|module| ExternalItem::String(module.to_string()))
         .chain([ExternalItem::Fn(Box::new(move |ctx| {
           let external_handler = external_handler.clone();
-          Box::pin(async move {
+          let result = Box::pin(async move {
             let result = external_handler
               .handle_externals(
-                &ctx.context,
-                &ctx.request,
+                ctx.context,
+                ctx.request,
                 &ctx.dependency_type,
                 ctx.context_info.issuer_layer.as_deref(),
-                Box::new(move |options| {
+                Arc::new(move |options: Option<ResolveOptionsWithDependencyType>| {
                   let first = ctx.resolve_options_with_dependency_type.clone();
                   let second = options.unwrap_or(ResolveOptionsWithDependencyType {
                     resolve_options: None,
@@ -214,7 +214,7 @@ impl Plugin for NextExternalsPlugin {
                         ResolveResult::Resource(resource) => {
                           let is_esm = if resource.path.ends_with(".js") {
                             resource.description_data.is_some_and(|description_data| {
-                              if let Some(object) =  description_data.json().as_object() {
+                              if let Some(object) = description_data.json().as_object() {
                                 object.get("type").and_then(|v| v.as_str()) == Some("module")
                               } else {
                                 false
@@ -236,7 +236,8 @@ impl Plugin for NextExternalsPlugin {
               external_type: None,
               result: result.map(ExternalItemValue::String),
             })
-          })
+          });
+          result
         }))])
         .collect::<Vec<_>>()
     };

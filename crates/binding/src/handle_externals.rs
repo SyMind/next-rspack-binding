@@ -1,5 +1,6 @@
-use std::{future::Future, path::Path, pin::Pin, sync::LazyLock};
+use std::{future::Future, path::Path, pin::Pin, sync::{Arc, LazyLock}};
 
+use once_cell::sync::OnceCell;
 use regex::Regex;
 use rspack_core::{Alias, DependencyCategory, Resolve, ResolveOptionsWithDependencyType};
 use rustc_hash::FxHashMap;
@@ -138,13 +139,16 @@ static NODE_BASE_ESM_RESOLVE_OPTIONS: LazyLock<ResolveOptionsWithDependencyType>
     dependency_category: NODE_ESM_RESOLVE_OPTIONS.dependency_category,
   });
 
+static NODE_MODULES_REGEX: LazyLock<Regex> =
+  LazyLock::new(|| Regex::new(r"node_modules[/\\].*\.[mc]?js$").unwrap());
+
 #[derive(Debug)]
 pub struct ExternalHandler {
   config: NextConfigComplete,
   opt_out_bundling_package_regex: Regex,
   transpiled_packages: Vec<String>,
   dir: String,
-  resolved_external_package_dirs: Option<FxHashMap<String, String>>,
+  resolved_external_package_dirs: OnceCell<FxHashMap<String, String>>,
   loose_esm_externals: bool,
 }
 
@@ -155,17 +159,14 @@ impl ExternalHandler {
     transpiled_packages: Vec<String>,
     dir: String,
   ) -> Self {
-    let loose_esm_externals = config
-      .experimental
-      .as_ref()
-      .map_or(false, |exp| exp.esm_externals == EsmExternalsConfig::Loose);
+    let loose_esm_externals = config.experimental.esm_externals == EsmExternalsConfig::Loose;
 
     Self {
       config,
       opt_out_bundling_package_regex,
       transpiled_packages,
       dir,
-      resolved_external_package_dirs: None,
+      resolved_external_package_dirs: OnceCell::default(),
       loose_esm_externals,
     }
   }
@@ -180,17 +181,96 @@ impl ExternalHandler {
         (cfg!(windows) && Path::new(request).is_absolute())
   }
 
+  async fn resolve_transpiled_packages(
+    &self,
+    context: String,
+    is_esm_requested: bool,
+    get_resolve: &GetResolveFn,
+  ) -> rspack_error::Result<FxHashMap<String, String>> {
+    let mut resolved_dirs = FxHashMap::default();
+
+    for pkg in &self.transpiled_packages {
+      let pkg_request = format!("{}/package.json", pkg);
+      let pkg_res = resolve_external(
+        self.dir.to_string(),
+        &self.config.experimental.esm_externals,
+        context.to_string(),
+        pkg_request,
+        is_esm_requested,
+        get_resolve.clone(),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+      )
+      .await?;
+
+      if let Some(res) = pkg_res.res {
+        if let Some(parent) = Path::new(&res).parent() {
+          resolved_dirs.insert(pkg.clone(), parent.to_string_lossy().to_string());
+        }
+      }
+    }
+
+    Ok(resolved_dirs)
+  }
+
+  fn is_resource_in_packages(&self, resource: &str, package_names: &[String]) -> bool {
+    if package_names.is_empty() {
+      return false;
+    }
+    package_names.iter().any(|pkg| {
+      if let Some(dirs) = self.resolved_external_package_dirs.get() {
+        if let Some(dir) = dirs.get(pkg) {
+          return resource.starts_with(&format!("{}/", dir));
+        }
+      }
+      resource.contains(&format!(
+        "/node_modules/{}/",
+        pkg.replace('/', std::path::MAIN_SEPARATOR_STR)
+      ))
+    })
+  }
+
+  fn resolve_bundling_opt_out_packages(
+    &self,
+    resolved_res: &str,
+    is_app_layer: bool,
+    external_type: &str,
+    is_opt_out_bundling: bool,
+    request: &str,
+  ) -> Option<String> {
+    if NODE_MODULES_REGEX.is_match(resolved_res) {
+      let should_bundle_pages = !is_app_layer
+        && self
+          .config
+          .bundle_pages_router_dependencies
+          .unwrap_or(false)
+        && !is_opt_out_bundling;
+
+      let should_be_bundled = should_bundle_pages
+        || self.is_resource_in_packages(resolved_res, &self.transpiled_packages);
+
+      if !should_be_bundled {
+        return Some(format!("{} {}", external_type, request));
+      }
+    }
+    None
+  }
+
   pub async fn handle_externals(
     &self,
-    context: &str,
-    request: &str,
+    context: String,
+    request: String,
     dependency_type: &str,
     layer: Option<&str>,
     get_resolve: GetResolveFn,
   ) -> rspack_error::Result<Option<String>> {
     // We need to externalize internal requests for files intended to
     // not be bundled.
-    let is_local = self.is_local_request(request);
+    let is_local = self.is_local_request(&request);
 
     // make sure import "next" shows a warning when imported
     // in pages/components
@@ -212,12 +292,12 @@ impl ExternalHandler {
       }
 
       // Handle React packages
-      if REACT_PACKAGES_REGEX.is_match(request) && !is_app_layer {
+      if REACT_PACKAGES_REGEX.is_match(&request) && !is_app_layer {
         return Ok(Some(format!("commonjs {}", request)));
       }
 
       // Skip modules that should not be external
-      if NOT_EXTERNAL_MODULES_REGEX.is_match(request) {
+      if NOT_EXTERNAL_MODULES_REGEX.is_match(&request) {
         return Ok(None);
       }
     }
@@ -253,33 +333,33 @@ impl ExternalHandler {
     if request.starts_with("next/dist/") {
       // Non external that needs to be transpiled
       // Image loader needs to be transpiled
-      if NEXT_IMAGE_LOADER_REGEX.is_match(request) {
+      if NEXT_IMAGE_LOADER_REGEX.is_match(&request) {
         return Ok(None);
       }
 
-      if NEXT_SERVER_REGEX.is_match(request) {
+      if NEXT_SERVER_REGEX.is_match(&request) {
         return Ok(Some(format!("commonjs {}", request)));
       }
 
-      if NEXT_SHARED_CJS_REGEX.is_match(request) || NEXT_COMPILED_CJS_REGEX.is_match(request) {
+      if NEXT_SHARED_CJS_REGEX.is_match(&request) || NEXT_COMPILED_CJS_REGEX.is_match(&request) {
         return Ok(Some(format!("commonjs {}", request)));
       }
 
-      if NEXT_SHARED_ESM_REGEX.is_match(request) || NEXT_COMPILED_MJS_REGEX.is_match(request) {
+      if NEXT_SHARED_ESM_REGEX.is_match(&request) || NEXT_COMPILED_MJS_REGEX.is_match(&request) {
         return Ok(Some(format!("module {}", request)));
       }
 
-      return Ok(resolve_next_external(request));
+      return Ok(resolve_next_external(&request));
     }
 
     // TODO-APP: Let's avoid this resolve call as much as possible, and eventually get rid of it.
     let resolve_result = resolve_external(
-      &self.dir.clone(),
-      self.config.experimental.esm_externals,
-      context,
-      request,
+      self.dir.to_string(),
+      &self.config.experimental.esm_externals,
+      context.to_string(),
+      request.to_string(),
       is_esm_requested,
-      get_resolve,
+      get_resolve.clone(),
       if is_local {
         Some(Box::new(resolve_next_external))
       } else {
@@ -318,10 +398,10 @@ impl ExternalHandler {
 
     // ESM externals validation
     if !is_esm_requested && is_esm && !self.loose_esm_externals && !is_local {
-      return Err(format!(
+      return Err(rspack_error::error!(
         "ESM packages ({}) need to be imported. Use 'import' to reference the package instead. https://nextjs.org/docs/messages/import-esm-externals",
         request
-      ).into());
+      ));
     }
 
     let external_type = if is_esm { "module" } else { "commonjs" };
@@ -336,11 +416,15 @@ impl ExternalHandler {
       return Ok(None);
     }
 
-    // Handle transpiled packages
-    if !self.transpiled_packages.is_empty() && self.resolved_external_package_dirs.is_none() {
-      self
-        .resolve_transpiled_packages(context, is_esm_requested, get_resolve)
+    // If a package should be transpiled by Next.js, we skip making it external.
+    // It doesn't matter what the extension is, as we'll transpile it anyway.
+    if !self.transpiled_packages.is_empty() && self.resolved_external_package_dirs.get().is_none() {
+      let dirs = self
+        .resolve_transpiled_packages(context.to_string(), is_esm_requested, &get_resolve)
         .await?;
+      self
+        .resolved_external_package_dirs
+        .get_or_init(move || dirs);
     }
 
     let resolved_bundling_opt_out_res = self.resolve_bundling_opt_out_packages(
@@ -348,7 +432,7 @@ impl ExternalHandler {
       is_app_layer,
       external_type,
       is_opt_out_bundling,
-      request,
+      &request,
     );
 
     if let Some(result) = resolved_bundling_opt_out_res {
@@ -428,16 +512,19 @@ impl EsmExternalsConfig {
 }
 
 type ResolveFn = Box<
-  dyn Fn(String, String) -> Pin<Box<dyn Future<Output = rspack_error::Result<(Option<String>, bool)>>>>,
+  dyn Fn(
+    String,
+    String,
+  ) -> Pin<Box<dyn Future<Output = rspack_error::Result<(Option<String>, bool)>> + Send + 'static>> + Send + 'static,
 >;
-type GetResolveFn = Box<dyn Fn(Option<ResolveOptionsWithDependencyType>) -> ResolveFn>;
-type IsLocalCallbackFn = Box<dyn Fn(&str) -> Option<String>>;
+type GetResolveFn = Arc<dyn Fn(Option<ResolveOptionsWithDependencyType>) -> ResolveFn + Send + Sync + 'static>;
+type IsLocalCallbackFn = Box<dyn Fn(&str) -> Option<String> + Send + Sync + 'static>;
 
 pub async fn resolve_external(
-  dir: &str,
+  dir: String,
   esm_externals_config: &EsmExternalsConfig,
-  context: &str,
-  request: &str,
+  context: String,
+  request: String,
   is_esm_requested: bool,
   get_resolve: GetResolveFn,
   is_local_callback: Option<IsLocalCallbackFn>,
@@ -446,7 +533,7 @@ pub async fn resolve_external(
   node_resolve_options: Option<&ResolveOptionsWithDependencyType>,
   base_esm_resolve_options: Option<&ResolveOptionsWithDependencyType>,
   base_resolve_options: Option<&ResolveOptionsWithDependencyType>,
-) -> Result<ResolveResult, Box<dyn std::error::Error>> {
+) -> rspack_error::Result<ResolveResult> {
   let esm_externals = esm_externals_config.is_enabled();
   let loose_esm_externals = esm_externals_config.is_loose();
 
@@ -473,11 +560,11 @@ pub async fn resolve_external(
       node_resolve_options
     };
 
-    let resolve = get_resolve(resolve_options);
+    let resolve = get_resolve(Some(resolve_options.clone()));
 
     // Resolve the import with the webpack provided context, this
     // ensures we're resolving the correct version when multiple exist.
-    match resolve(context, request) {
+    match resolve(context.to_string(), request.to_string()).await {
       Ok((resolved_path, resolved_is_esm)) => {
         res = resolved_path;
         is_esm = resolved_is_esm;
@@ -518,9 +605,9 @@ pub async fn resolve_external(
         base_resolve_options
       };
 
-      let base_resolve = get_resolve(base_resolve_options);
+      let base_resolve = get_resolve(Some(base_resolve_options.clone()));
 
-      let (base_res, base_is_esm) = match base_resolve(dir, request) {
+      let (base_res, base_is_esm) = match base_resolve(dir.to_string(), request.to_string()).await {
         Ok((resolved_path, resolved_is_esm)) => (resolved_path, resolved_is_esm),
         Err(_) => (None, false),
       };
