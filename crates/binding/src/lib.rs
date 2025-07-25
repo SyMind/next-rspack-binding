@@ -1,3 +1,4 @@
+mod next_externals_plugin;
 mod plugin;
 
 use napi::bindgen_prelude::*;
@@ -22,6 +23,15 @@ extern crate rspack_binding_builder;
 //
 // The resolver function should return a `BoxPlugin` instance.
 register_plugin!("MyBannerPlugin", |_env: Env, options: Unknown<'_>| {
+  let banner = options
+    .coerce_to_string()?
+    .into_utf8()?
+    .as_str()?
+    .to_string();
+  Ok(Box::new(plugin::MyBannerPlugin::new(banner)) as BoxPlugin)
+});
+
+register_plugin!("NextExternalsPlugin", |_env: Env, options: Unknown<'_>| {
   let banner = options
     .coerce_to_string()?
     .into_utf8()?

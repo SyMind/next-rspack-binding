@@ -15,6 +15,9 @@ rspack_sources = { version = "0.4.8" }
 rspack_binding_build          = { version = "=0.4.10" }
 rspack_binding_builder        = { version = "=0.4.10" }
 rspack_binding_builder_macros = { version = "=0.4.10" }
+rspack_plugin_externals       = { version = "=0.4.10" }
+
+rustc-hash = { version = "2.1.0" }
 
 napi        = { version = "=3.1.2" }
 napi-derive = { version = "=3.1.1" }
