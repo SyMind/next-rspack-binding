@@ -1,0 +1,42 @@
+{
+  "name": "@rspack-template/core",
+  "version": "0.0.3",
+  "homepage": "https://github.com/rspack-contrib/rspack-binding-template",
+  "bugs": {
+    "url": "https://github.com/rspack-contrib/rspack-binding-template/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rspack-contrib/rspack-binding-template.git"
+  },
+  "packageManager": "pnpm@10.13.1",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "prepare": "husky",
+    "build": "pnpm run --filter @rspack-template/binding build",
+    "lint-staged": "lint-staged"
+  },
+  "dependencies": {
+    "@rspack/core": "1.4.10",
+    "@rspack-template/binding": "workspace:*"
+  },
+  "devDependencies": {
+    "@taplo/cli": "^0.7.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^16.0.0"
+  },
+  "lint-staged": {
+    "*.toml": "npx taplo format"
+  }
+}
