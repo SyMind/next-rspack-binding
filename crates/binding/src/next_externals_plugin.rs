@@ -90,6 +90,7 @@ pub struct NextExternalsPluginOptions {
   pub opt_out_bundling_package_regex: RspackRegex,
   pub final_transpile_packages: Vec<String>,
   pub dir: String,
+  pub default_overrides: FxHashMap<String, String>
 }
 
 #[derive(Debug)]
@@ -109,6 +110,7 @@ impl NextExternalsPlugin {
       opt_out_bundling_package_regex,
       final_transpile_packages,
       dir,
+      default_overrides,
     } = options;
 
     let external_handler = ExternalHandler::new(
@@ -116,6 +118,7 @@ impl NextExternalsPlugin {
       opt_out_bundling_package_regex,
       final_transpile_packages,
       dir,
+      default_overrides,
     );
 
     Self::new_inner(

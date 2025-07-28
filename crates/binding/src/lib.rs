@@ -6,6 +6,7 @@ use napi::bindgen_prelude::*;
 use rspack_binding_builder_macros::register_plugin;
 use rspack_core::BoxPlugin;
 use rspack_regex::RspackRegex;
+use rustc_hash::FxHashMap;
 
 use crate::{
   config_shared::{EsmExternalsConfig, ExperimentalConfig, NextConfigComplete},
@@ -75,6 +76,9 @@ pub struct NapiNextExternalsPluginOptions {
   pub opt_out_bundling_package_regex: RspackRegex,
   pub final_transpile_packages: Vec<String>,
   pub dir: String,
+  // TODO: maybe cannot receive object
+  #[napi(ts_type = "Record<string, string>")]
+  pub default_overrides: FxHashMap<String, String>
 }
 
 impl From<NapiNextExternalsPluginOptions> for NextExternalsPluginOptions {
@@ -86,6 +90,7 @@ impl From<NapiNextExternalsPluginOptions> for NextExternalsPluginOptions {
       opt_out_bundling_package_regex,
       final_transpile_packages,
       dir,
+      default_overrides,
     } = value;
     NextExternalsPluginOptions {
       compiler_type,
@@ -94,6 +99,7 @@ impl From<NapiNextExternalsPluginOptions> for NextExternalsPluginOptions {
       opt_out_bundling_package_regex,
       final_transpile_packages,
       dir,
+      default_overrides,
     }
   }
 }

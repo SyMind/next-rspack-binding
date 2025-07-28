@@ -148,6 +148,27 @@ static NODE_BASE_ESM_RESOLVE_OPTIONS: LazyLock<ResolveOptionsWithDependencyType>
 static NODE_MODULES_REGEX: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"node_modules[/\\].*\.[mc]?js$").unwrap());
 
+fn is_resource_in_packages(
+  resource: &str,
+  package_names: &[String],
+  package_dir_mapping: Option<&FxHashMap<String, String>>,
+) -> bool {
+  if package_names.is_empty() {
+    return false;
+  }
+  package_names.iter().any(|pkg| {
+    if let Some(dirs) = package_dir_mapping {
+      if let Some(dir) = dirs.get(pkg) {
+        return resource.starts_with(&format!("{}/", dir));
+      }
+    }
+    resource.contains(&format!(
+      "/node_modules/{}/",
+      pkg.replace('/', std::path::MAIN_SEPARATOR_STR)
+    ))
+  })
+}
+
 #[derive(Debug)]
 pub struct ExternalHandler {
   config: NextConfigComplete,
@@ -156,6 +177,7 @@ pub struct ExternalHandler {
   dir: String,
   resolved_external_package_dirs: OnceCell<FxHashMap<String, String>>,
   loose_esm_externals: bool,
+  default_overrides: FxHashMap<String, String>,
 }
 
 impl ExternalHandler {
@@ -164,6 +186,7 @@ impl ExternalHandler {
     opt_out_bundling_package_regex: RspackRegex,
     transpiled_packages: Vec<String>,
     dir: String,
+    default_overrides: FxHashMap<String, String>,
   ) -> Self {
     let loose_esm_externals = config.experimental.esm_externals == EsmExternalsConfig::Loose;
 
@@ -174,70 +197,8 @@ impl ExternalHandler {
       dir,
       resolved_external_package_dirs: OnceCell::default(),
       loose_esm_externals,
+      default_overrides
     }
-  }
-
-  fn is_local_request(&self, request: &str) -> bool {
-    request.starts_with('.') ||
-        // Always check for unix-style path, as webpack sometimes
-        // normalizes as posix.
-        Path::new(request).is_absolute() ||
-        // When on Windows, we also want to check for Windows-specific
-        // absolute paths.
-        (cfg!(windows) && Path::new(request).is_absolute())
-  }
-
-  async fn resolve_transpiled_packages(
-    &self,
-    context: String,
-    is_esm_requested: bool,
-    get_resolve: &GetResolveFn,
-  ) -> rspack_error::Result<FxHashMap<String, String>> {
-    let mut resolved_dirs = FxHashMap::default();
-
-    for pkg in &self.transpiled_packages {
-      let pkg_request = format!("{}/package.json", pkg);
-      let pkg_res = resolve_external(
-        self.dir.to_string(),
-        &self.config.experimental.esm_externals,
-        context.to_string(),
-        pkg_request,
-        is_esm_requested,
-        get_resolve.clone(),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-      )
-      .await?;
-
-      if let Some(res) = pkg_res.res {
-        if let Some(parent) = Path::new(&res).parent() {
-          resolved_dirs.insert(pkg.clone(), parent.to_string_lossy().to_string());
-        }
-      }
-    }
-
-    Ok(resolved_dirs)
-  }
-
-  fn is_resource_in_packages(&self, resource: &str, package_names: &[String]) -> bool {
-    if package_names.is_empty() {
-      return false;
-    }
-    package_names.iter().any(|pkg| {
-      if let Some(dirs) = self.resolved_external_package_dirs.get() {
-        if let Some(dir) = dirs.get(pkg) {
-          return resource.starts_with(&format!("{}/", dir));
-        }
-      }
-      resource.contains(&format!(
-        "/node_modules/{}/",
-        pkg.replace('/', std::path::MAIN_SEPARATOR_STR)
-      ))
-    })
   }
 
   fn resolve_bundling_opt_out_packages(
@@ -257,7 +218,11 @@ impl ExternalHandler {
         && !is_opt_out_bundling;
 
       let should_be_bundled = should_bundle_pages
-        || self.is_resource_in_packages(resolved_res, &self.transpiled_packages);
+        || is_resource_in_packages(
+          resolved_res,
+          &self.transpiled_packages,
+          self.resolved_external_package_dirs.get(),
+        );
 
       if !should_be_bundled {
         return Some(format!("{} {}", external_type, request));
@@ -276,7 +241,7 @@ impl ExternalHandler {
   ) -> rspack_error::Result<Option<String>> {
     // We need to externalize internal requests for files intended to
     // not be bundled.
-    let is_local = self.is_local_request(&request);
+    let is_local = request.starts_with('.') || Path::new(&request).is_absolute();
 
     // make sure import "next" shows a warning when imported
     // in pages/components
@@ -383,26 +348,36 @@ impl ExternalHandler {
       return Ok(Some(local_res));
     }
 
-    // Handle styled-jsx special case
+    // Forcedly resolve the styled-jsx installed by next.js,
+    // since `resolveExternal` cannot find the styled-jsx dep with pnpm
     let (res, is_esm) = if request == "styled-jsx/style" {
-      // You would need to implement default_overrides equivalent
-      (Some("styled-jsx/style".to_string()), false)
+      (
+        self
+          .default_overrides
+          .get("styled-jsx/style")
+          .map(|s| s.to_string()),
+        resolve_result.is_esm,
+      )
     } else {
       (resolve_result.res, resolve_result.is_esm)
     };
 
-    let res = match res {
-      Some(r) => r,
-      None => return Ok(None),
+    let Some(res) = res else {
+      // If the request cannot be resolved we need to have
+      // webpack "bundle" it so it surfaces the not found error.
+      return Ok(None);
     };
 
     let is_opt_out_bundling = self.opt_out_bundling_package_regex.test(&res);
 
+    // Apply bundling rules to all app layers.
+    // Since handleExternals only handle the server layers, we don't need to exclude client here
     if !is_opt_out_bundling && is_app_layer {
       return Ok(None);
     }
 
-    // ESM externals validation
+    // ESM externals can only be imported (and not required).
+    // Make an exception in loose mode.
     if !is_esm_requested && is_esm && !self.loose_esm_externals && !is_local {
       return Err(rspack_error::error!(
         "ESM packages ({}) need to be imported. Use 'import' to reference the package instead. https://nextjs.org/docs/messages/import-esm-externals",
@@ -412,12 +387,13 @@ impl ExternalHandler {
 
     let external_type = if is_esm { "module" } else { "commonjs" };
 
-    // Skip Babel runtime
+    // Default pages have to be transpiled
+    // This is the @babel/plugin-transform-runtime "helpers: true" option
     if BABEL_RUNTIME_REGEX.is_match(&res) {
       return Ok(None);
     }
 
-    // Skip webpack and css-loader
+     // Webpack itself has to be compiled because it doesn't always use module relative paths
     if WEBPACK_CSS_LOADER_REGEX.is_match(&res) {
       return Ok(None);
     }
@@ -425,12 +401,41 @@ impl ExternalHandler {
     // If a package should be transpiled by Next.js, we skip making it external.
     // It doesn't matter what the extension is, as we'll transpile it anyway.
     if !self.transpiled_packages.is_empty() && self.resolved_external_package_dirs.get().is_none() {
-      let dirs = self
-        .resolve_transpiled_packages(context.to_string(), is_esm_requested, &get_resolve)
+      let mut resolved_dirs = FxHashMap::default();
+
+      // We need to resolve all the external package dirs initially.
+      for pkg in &self.transpiled_packages {
+        let pkg_request = format!("{}/package.json", pkg);
+        let pkg_res = resolve_external(
+          self.dir.to_string(),
+          &self.config.experimental.esm_externals,
+          context.to_string(),
+          pkg_request,
+          is_esm_requested,
+          get_resolve.clone(),
+          if is_local {
+            Some(Box::new(resolve_next_external))
+          } else {
+            None
+          },
+          None,
+          None,
+          None,
+          None,
+          None,
+        )
         .await?;
+
+        if let Some(res) = pkg_res.res {
+          if let Some(parent) = Path::new(&res).parent() {
+            resolved_dirs.insert(pkg.clone(), parent.to_string_lossy().to_string());
+          }
+        }
+      }
+
       self
         .resolved_external_package_dirs
-        .get_or_init(move || dirs);
+        .get_or_init(move || resolved_dirs);
     }
 
     let resolved_bundling_opt_out_res = self.resolve_bundling_opt_out_packages(
@@ -441,11 +446,11 @@ impl ExternalHandler {
       &request,
     );
 
-    if let Some(result) = resolved_bundling_opt_out_res {
-      return Ok(Some(result));
+    if resolved_bundling_opt_out_res.is_some() {
+      return Ok(resolved_bundling_opt_out_res);
     }
 
-    // Default to bundling
+    // if here, we default to bundling the file
     Ok(None)
   }
 }
