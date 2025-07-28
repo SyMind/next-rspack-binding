@@ -7,7 +7,25 @@ export declare class ExternalObject<T> {
     [K: symbol]: T
   }
 }
-export declare function registerMyBannerPlugin(): void
+export interface NapiExperimentalConfig {
+  esmExternals?: string | boolean
+}
+
+export interface NapiNextConfigComplete {
+  experimental: NapiExperimentalConfig
+  bundlePagesRouterDependencies?: boolean
+}
+
+export interface NapiNextExternalsPluginOptions {
+  compilerType: string
+  config: NapiNextConfigComplete
+  builtinModules: Array<string>
+  optOutBundlingPackageRegex: RegExp
+  finalTranspilePackages: Array<string>
+  dir: string
+}
+
+export declare function registerNextExternalsPlugin(): void
 export declare class Assets {
   keys(): Array<string>
 }

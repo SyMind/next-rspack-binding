@@ -1,5 +1,5 @@
 {
-  "name": "@rspack-template/binding",
+  "name": "next-rspack-binding",
   "version": "0.0.3",
   "homepage": "https://github.com/rspack-contrib/rspack-binding-template",
   "bugs": {
@@ -24,7 +24,8 @@
     "index.d.ts"
   ],
   "scripts": {
-    "build": "napi build --platform"
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
   },
   "devDependencies": {
     "@napi-rs/cli": "3.0.1",
