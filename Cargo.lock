@@ -296,6 +296,7 @@ dependencies = [
  "rspack_error",
  "rspack_hook",
  "rspack_plugin_externals",
+ "rspack_regex",
  "rspack_sources",
  "rustc-hash 2.1.1",
 ]

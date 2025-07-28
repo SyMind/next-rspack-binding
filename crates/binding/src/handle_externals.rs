@@ -1,8 +1,14 @@
-use std::{future::Future, path::Path, pin::Pin, sync::{Arc, LazyLock}};
+use std::{
+  future::Future,
+  path::Path,
+  pin::Pin,
+  sync::{Arc, LazyLock},
+};
 
 use once_cell::sync::OnceCell;
 use regex::Regex;
 use rspack_core::{Alias, DependencyCategory, Resolve, ResolveOptionsWithDependencyType};
+use rspack_regex::RspackRegex;
 use rustc_hash::FxHashMap;
 
 use crate::config_shared::{EsmExternalsConfig, NextConfigComplete};
@@ -36,15 +42,15 @@ static NEXT_IMAGE_LOADER_REGEX: LazyLock<Regex> =
 static NEXT_SERVER_REGEX: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"^next[/\\]dist[/\\]compiled[/\\]next-server").unwrap());
 
-static NEXT_SHARED_CJS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"^next[/\\]dist[/\\]shared[/\\](?!lib[/\\]router[/\\]router)").unwrap()
+static NEXT_SHARED_CJS_REGEX: LazyLock<RspackRegex> = LazyLock::new(|| {
+  RspackRegex::new(r"^next[/\\]dist[/\\]shared[/\\](?!lib[/\\]router[/\\]router)").unwrap()
 });
 
 static NEXT_COMPILED_CJS_REGEX: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"^next[/\\]dist[/\\]compiled[/\\].*\.c?js$").unwrap());
 
-static NEXT_SHARED_ESM_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"^next[/\\]dist[/\\]esm[/\\]shared[/\\](?!lib[/\\]router[/\\]router)").unwrap()
+static NEXT_SHARED_ESM_REGEX: LazyLock<RspackRegex> = LazyLock::new(|| {
+  RspackRegex::new(r"^next[/\\]dist[/\\]esm[/\\]shared[/\\](?!lib[/\\]router[/\\]router)").unwrap()
 });
 
 static NEXT_COMPILED_MJS_REGEX: LazyLock<Regex> =
@@ -145,7 +151,7 @@ static NODE_MODULES_REGEX: LazyLock<Regex> =
 #[derive(Debug)]
 pub struct ExternalHandler {
   config: NextConfigComplete,
-  opt_out_bundling_package_regex: Regex,
+  opt_out_bundling_package_regex: RspackRegex,
   transpiled_packages: Vec<String>,
   dir: String,
   resolved_external_package_dirs: OnceCell<FxHashMap<String, String>>,
@@ -155,7 +161,7 @@ pub struct ExternalHandler {
 impl ExternalHandler {
   pub fn new(
     config: NextConfigComplete,
-    opt_out_bundling_package_regex: Regex,
+    opt_out_bundling_package_regex: RspackRegex,
     transpiled_packages: Vec<String>,
     dir: String,
   ) -> Self {
@@ -341,11 +347,11 @@ impl ExternalHandler {
         return Ok(Some(format!("commonjs {}", request)));
       }
 
-      if NEXT_SHARED_CJS_REGEX.is_match(&request) || NEXT_COMPILED_CJS_REGEX.is_match(&request) {
+      if NEXT_SHARED_CJS_REGEX.test(&request) || NEXT_COMPILED_CJS_REGEX.is_match(&request) {
         return Ok(Some(format!("commonjs {}", request)));
       }
 
-      if NEXT_SHARED_ESM_REGEX.is_match(&request) || NEXT_COMPILED_MJS_REGEX.is_match(&request) {
+      if NEXT_SHARED_ESM_REGEX.test(&request) || NEXT_COMPILED_MJS_REGEX.is_match(&request) {
         return Ok(Some(format!("module {}", request)));
       }
 
@@ -390,7 +396,7 @@ impl ExternalHandler {
       None => return Ok(None),
     };
 
-    let is_opt_out_bundling = self.opt_out_bundling_package_regex.is_match(&res);
+    let is_opt_out_bundling = self.opt_out_bundling_package_regex.test(&res);
 
     if !is_opt_out_bundling && is_app_layer {
       return Ok(None);
@@ -513,11 +519,15 @@ impl EsmExternalsConfig {
 
 type ResolveFn = Box<
   dyn Fn(
-    String,
-    String,
-  ) -> Pin<Box<dyn Future<Output = rspack_error::Result<(Option<String>, bool)>> + Send + 'static>> + Send + 'static,
+      String,
+      String,
+    ) -> Pin<
+      Box<dyn Future<Output = rspack_error::Result<(Option<String>, bool)>> + Send + 'static>,
+    > + Send
+    + 'static,
 >;
-type GetResolveFn = Arc<dyn Fn(Option<ResolveOptionsWithDependencyType>) -> ResolveFn + Send + Sync + 'static>;
+type GetResolveFn =
+  Arc<dyn Fn(Option<ResolveOptionsWithDependencyType>) -> ResolveFn + Send + Sync + 'static>;
 type IsLocalCallbackFn = Box<dyn Fn(&str) -> Option<String> + Send + Sync + 'static>;
 
 pub async fn resolve_external(

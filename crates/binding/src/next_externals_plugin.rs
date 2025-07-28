@@ -3,7 +3,6 @@ use std::{
   sync::{Arc, LazyLock},
 };
 
-use regex::Regex;
 use rspack_core::{
   ApplyContext, CompilerOptions, DependencyCategory, ExternalItem, ExternalItemFnCtx,
   ExternalItemFnResult, ExternalItemObject, ExternalItemValue, Plugin, PluginContext,
@@ -12,6 +11,7 @@ use rspack_core::{
 use rspack_error::ToStringResultToRspackResultExt;
 use rspack_hook::plugin;
 use rspack_plugin_externals::ExternalsPlugin;
+use rspack_regex::RspackRegex;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{config_shared::NextConfigComplete, handle_externals::ExternalHandler};
@@ -64,7 +64,7 @@ async fn handle_webpack_external_for_edge_runtime(
       .get(ctx.resolve_options_with_dependency_type);
     // Allow user to provide and use their polyfills, as we do with buffer.
     match resolver
-      .resolve(&Path::new(&ctx.context), &ctx.request)
+      .resolve(Path::new(&ctx.context), &ctx.request)
       .await
     {
       Ok(_) => None,
@@ -83,24 +83,34 @@ async fn handle_webpack_external_for_edge_runtime(
   })
 }
 
+pub struct NextExternalsPluginOptions {
+  pub compiler_type: String,
+  pub config: NextConfigComplete,
+  pub builtin_modules: Vec<String>,
+  pub opt_out_bundling_package_regex: RspackRegex,
+  pub final_transpile_packages: Vec<String>,
+  pub dir: String,
+}
+
 #[derive(Debug)]
 #[plugin]
 pub struct NextExternalsPlugin {
   compiler_type: String,
-  config: NextConfigComplete,
   builtin_modules: Arc<Vec<String>>,
   external_handler: Arc<ExternalHandler>,
 }
 
 impl NextExternalsPlugin {
-  pub fn new(
-    compiler_type: String,
-    config: NextConfigComplete,
-    builtin_modules: Vec<String>,
-    opt_out_bundling_package_regex: Regex,
-    final_transpile_packages: Vec<String>,
-    dir: String,
-  ) -> Self {
+  pub fn new(options: NextExternalsPluginOptions) -> Self {
+    let NextExternalsPluginOptions {
+      compiler_type,
+      config,
+      builtin_modules,
+      opt_out_bundling_package_regex,
+      final_transpile_packages,
+      dir,
+    } = options;
+
     let external_handler = ExternalHandler::new(
       config.clone(),
       opt_out_bundling_package_regex,
@@ -110,7 +120,6 @@ impl NextExternalsPlugin {
 
     Self::new_inner(
       compiler_type,
-      config,
       Arc::new(builtin_modules),
       Arc::new(external_handler),
     )
@@ -207,7 +216,7 @@ impl Plugin for NextExternalsPlugin {
                     let resolver = resolver.clone();
                     Box::pin(async move {
                       let resolve_result = resolver
-                        .resolve(&Path::new(&context), &request)
+                        .resolve(Path::new(&context), &request)
                         .await
                         .to_rspack_result()?;
                       Ok(match resolve_result {
