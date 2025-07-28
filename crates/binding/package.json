@@ -1,5 +1,5 @@
 {
-  "name": "next-rspack-binding",
+  "name": "@next-rspack/binding",
   "version": "0.0.3",
   "homepage": "https://github.com/rspack-contrib/rspack-binding-template",
   "bugs": {

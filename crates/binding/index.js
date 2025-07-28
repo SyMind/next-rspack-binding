@@ -78,7 +78,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-android-arm64')
+        return require('@next-rspack/binding-android-arm64')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -89,7 +89,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-android-arm-eabi')
+        return require('@next-rspack/binding-android-arm-eabi')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -104,7 +104,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-win32-x64-msvc')
+        return require('@next-rspack/binding-win32-x64-msvc')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -115,7 +115,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-win32-ia32-msvc')
+        return require('@next-rspack/binding-win32-ia32-msvc')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -126,7 +126,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-win32-arm64-msvc')
+        return require('@next-rspack/binding-win32-arm64-msvc')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -140,7 +140,7 @@ function requireNative() {
       loadErrors.push(e)
     }
     try {
-      return require('next-rspack-binding-darwin-universal')
+      return require('@next-rspack/binding-darwin-universal')
     } catch (e) {
       loadErrors.push(e)
     }
@@ -151,7 +151,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-darwin-x64')
+        return require('@next-rspack/binding-darwin-x64')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -162,7 +162,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-darwin-arm64')
+        return require('@next-rspack/binding-darwin-arm64')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -177,7 +177,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-freebsd-x64')
+        return require('@next-rspack/binding-freebsd-x64')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -188,7 +188,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-freebsd-arm64')
+        return require('@next-rspack/binding-freebsd-arm64')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -204,7 +204,7 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('next-rspack-binding-linux-x64-musl')
+          return require('@next-rspack/binding-linux-x64-musl')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -215,7 +215,7 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('next-rspack-binding-linux-x64-gnu')
+          return require('@next-rspack/binding-linux-x64-gnu')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -228,7 +228,7 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('next-rspack-binding-linux-arm64-musl')
+          return require('@next-rspack/binding-linux-arm64-musl')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -239,7 +239,7 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('next-rspack-binding-linux-arm64-gnu')
+          return require('@next-rspack/binding-linux-arm64-gnu')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -252,7 +252,7 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('next-rspack-binding-linux-arm-musleabihf')
+          return require('@next-rspack/binding-linux-arm-musleabihf')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -263,7 +263,7 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('next-rspack-binding-linux-arm-gnueabihf')
+          return require('@next-rspack/binding-linux-arm-gnueabihf')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -276,7 +276,7 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('next-rspack-binding-linux-riscv64-musl')
+          return require('@next-rspack/binding-linux-riscv64-musl')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -287,7 +287,7 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('next-rspack-binding-linux-riscv64-gnu')
+          return require('@next-rspack/binding-linux-riscv64-gnu')
         } catch (e) {
           loadErrors.push(e)
         }
@@ -299,7 +299,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-linux-ppc64-gnu')
+        return require('@next-rspack/binding-linux-ppc64-gnu')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -310,7 +310,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-linux-s390x-gnu')
+        return require('@next-rspack/binding-linux-s390x-gnu')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -325,7 +325,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-linux-arm64-ohos')
+        return require('@next-rspack/binding-linux-arm64-ohos')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -336,7 +336,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-linux-x64-ohos')
+        return require('@next-rspack/binding-linux-x64-ohos')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -347,7 +347,7 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('next-rspack-binding-linux-arm-ohos')
+        return require('@next-rspack/binding-linux-arm-ohos')
       } catch (e) {
         loadErrors.push(e)
       }
@@ -371,7 +371,7 @@ if (!nativeBinding || process.env.NAPI_RS_FORCE_WASI) {
   }
   if (!nativeBinding) {
     try {
-      nativeBinding = require('next-rspack-binding-wasm32-wasi')
+      nativeBinding = require('@next-rspack/binding-wasm32-wasi')
     } catch (err) {
       if (process.env.NAPI_RS_FORCE_WASI) {
         loadErrors.push(err)
@@ -394,56 +394,3 @@ if (!nativeBinding) {
 
 module.exports = nativeBinding
 module.exports.registerNextExternalsPlugin = nativeBinding.registerNextExternalsPlugin
-module.exports.Assets = nativeBinding.Assets
-module.exports.AsyncDependenciesBlock = nativeBinding.AsyncDependenciesBlock
-module.exports.Chunk = nativeBinding.Chunk
-module.exports.ChunkGraph = nativeBinding.ChunkGraph
-module.exports.ChunkGroup = nativeBinding.ChunkGroup
-module.exports.Chunks = nativeBinding.Chunks
-module.exports.CodeGenerationResult = nativeBinding.CodeGenerationResult
-module.exports.CodeGenerationResults = nativeBinding.CodeGenerationResults
-module.exports.ConcatenatedModule = nativeBinding.ConcatenatedModule
-module.exports.ContextModule = nativeBinding.ContextModule
-module.exports.Dependency = nativeBinding.Dependency
-module.exports.Diagnostics = nativeBinding.Diagnostics
-module.exports.EntryDataDto = nativeBinding.EntryDataDto
-module.exports.EntryDataDTO = nativeBinding.EntryDataDTO
-module.exports.EntryDependency = nativeBinding.EntryDependency
-module.exports.EntryOptionsDto = nativeBinding.EntryOptionsDto
-module.exports.EntryOptionsDTO = nativeBinding.EntryOptionsDTO
-module.exports.ExternalModule = nativeBinding.ExternalModule
-module.exports.JsCompilation = nativeBinding.JsCompilation
-module.exports.JsCompiler = nativeBinding.JsCompiler
-module.exports.JsContextModuleFactoryAfterResolveData = nativeBinding.JsContextModuleFactoryAfterResolveData
-module.exports.JsContextModuleFactoryBeforeResolveData = nativeBinding.JsContextModuleFactoryBeforeResolveData
-module.exports.JsDependencies = nativeBinding.JsDependencies
-module.exports.JsEntries = nativeBinding.JsEntries
-module.exports.JsExportsInfo = nativeBinding.JsExportsInfo
-module.exports.JsModuleGraph = nativeBinding.JsModuleGraph
-module.exports.JsResolver = nativeBinding.JsResolver
-module.exports.JsResolverFactory = nativeBinding.JsResolverFactory
-module.exports.JsStats = nativeBinding.JsStats
-module.exports.KnownBuildInfo = nativeBinding.KnownBuildInfo
-module.exports.Module = nativeBinding.Module
-module.exports.ModuleGraphConnection = nativeBinding.ModuleGraphConnection
-module.exports.NativeWatcher = nativeBinding.NativeWatcher
-module.exports.NativeWatchResult = nativeBinding.NativeWatchResult
-module.exports.NormalModule = nativeBinding.NormalModule
-module.exports.RawExternalItemFnCtx = nativeBinding.RawExternalItemFnCtx
-module.exports.ReadonlyResourceData = nativeBinding.ReadonlyResourceData
-module.exports.Sources = nativeBinding.Sources
-module.exports.BuiltinPluginName = nativeBinding.BuiltinPluginName
-module.exports.cleanupGlobalTrace = nativeBinding.cleanupGlobalTrace
-module.exports.EXPECTED_RSPACK_CORE_VERSION = nativeBinding.EXPECTED_RSPACK_CORE_VERSION
-module.exports.formatDiagnostic = nativeBinding.formatDiagnostic
-module.exports.JsLoaderState = nativeBinding.JsLoaderState
-module.exports.JsRspackSeverity = nativeBinding.JsRspackSeverity
-module.exports.loadBrowserslist = nativeBinding.loadBrowserslist
-module.exports.minify = nativeBinding.minify
-module.exports.minifySync = nativeBinding.minifySync
-module.exports.RawRuleSetConditionType = nativeBinding.RawRuleSetConditionType
-module.exports.registerGlobalTrace = nativeBinding.registerGlobalTrace
-module.exports.RegisterJsTapKind = nativeBinding.RegisterJsTapKind
-module.exports.syncTraceEvent = nativeBinding.syncTraceEvent
-module.exports.transform = nativeBinding.transform
-module.exports.transformSync = nativeBinding.transformSync
