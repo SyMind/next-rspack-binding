@@ -16,6 +16,7 @@ export interface NapiNextExternalsPluginOptions {
   optOutBundlingPackageRegex: RegExp
   finalTranspilePackages: Array<string>
   dir: string
+  defaultOverrides: Record<string, string>
 }
 
 export declare function registerNextExternalsPlugin(): void

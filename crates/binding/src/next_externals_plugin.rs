@@ -26,11 +26,11 @@ fn get_edge_polyfilled_modules() -> ExternalItem {
   for &module in SUPPORTED_NATIVE_MODULES {
     externals.insert(
       module.to_string(),
-      ExternalItemValue::String(format!("commonjs node:{}", module)),
+      ExternalItemValue::String(format!("commonjs node:{module}")),
     );
     externals.insert(
-      format!("node:{}", module),
-      ExternalItemValue::String(format!("commonjs node:{}", module)),
+      format!("node:{module}"),
+      ExternalItemValue::String(format!("commonjs node:{module}")),
     );
   }
   ExternalItem::Object(externals)
@@ -90,7 +90,7 @@ pub struct NextExternalsPluginOptions {
   pub opt_out_bundling_package_regex: RspackRegex,
   pub final_transpile_packages: Vec<String>,
   pub dir: String,
-  pub default_overrides: FxHashMap<String, String>
+  pub default_overrides: FxHashMap<String, String>,
 }
 
 #[derive(Debug)]
@@ -183,7 +183,7 @@ impl Plugin for NextExternalsPlugin {
         .chain([ExternalItem::Fn(Box::new(move |ctx| {
           let external_handler = external_handler.clone();
           let result = Box::pin(async move {
-            let result = external_handler
+            let external_result = external_handler
               .handle_externals(
                 ctx.context,
                 ctx.request,
@@ -225,9 +225,9 @@ impl Plugin for NextExternalsPlugin {
                       Ok(match resolve_result {
                         ResolveResult::Resource(resource) => {
                           let is_esm = if resource.path.ends_with(".js") {
-                            resource.description_data.is_some_and(|description_data| {
+                            resource.description_data.as_ref().is_some_and(|description_data| {
                               if let Some(object) = description_data.json().as_object() {
-                                object.get("type").and_then(|v| v.as_str()) == Some("module")
+                                object.get("type").is_some_and(|v| v.as_str() == Some("module"))
                               } else {
                                 false
                               }
@@ -235,7 +235,7 @@ impl Plugin for NextExternalsPlugin {
                           } else {
                             resource.path.ends_with(".mjs")
                           };
-                          (Some(resource.path.into_string()), is_esm)
+                          (Some(resource.full_path()), is_esm)
                         }
                         ResolveResult::Ignored => (None, false),
                       })
@@ -246,7 +246,7 @@ impl Plugin for NextExternalsPlugin {
               .await?;
             Ok(ExternalItemFnResult {
               external_type: None,
-              result: result.map(ExternalItemValue::String),
+              result: external_result.map(ExternalItemValue::String),
             })
           });
           result

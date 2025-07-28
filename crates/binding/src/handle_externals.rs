@@ -24,7 +24,7 @@ const WEBPACK_BUNDLED_LAYERS: &[&str] = &[
 ];
 
 fn is_webpack_bundled_layer(layer: Option<&str>) -> bool {
-  layer.map_or(false, |layer| WEBPACK_BUNDLED_LAYERS.contains(&layer))
+  layer.is_some_and(|layer| WEBPACK_BUNDLED_LAYERS.contains(&layer))
 }
 
 static REACT_PACKAGES_REGEX: LazyLock<Regex> =
@@ -67,7 +67,7 @@ const BARREL_OPTIMIZATION_PREFIX: &str = "__barrel_optimize__";
 const WEBPACK_SERVER_ONLY_LAYERS: &[&str] = &["rsc", "action-browser", "instrument", "middleware"];
 
 fn should_use_react_server_condition(layer: Option<&str>) -> bool {
-  layer.map_or(false, |layer| WEBPACK_SERVER_ONLY_LAYERS.contains(&layer))
+  layer.is_some_and(|layer| WEBPACK_SERVER_ONLY_LAYERS.contains(&layer))
 }
 
 static NODE_RESOLVE_OPTIONS: LazyLock<ResolveOptionsWithDependencyType> =
@@ -159,7 +159,7 @@ fn is_resource_in_packages(
   package_names.iter().any(|pkg| {
     if let Some(dirs) = package_dir_mapping {
       if let Some(dir) = dirs.get(pkg) {
-        return resource.starts_with(&format!("{}/", dir));
+        return resource.starts_with(&format!("{dir}/"));
       }
     }
     resource.contains(&format!(
@@ -197,7 +197,7 @@ impl ExternalHandler {
       dir,
       resolved_external_package_dirs: OnceCell::default(),
       loose_esm_externals,
-      default_overrides
+      default_overrides,
     }
   }
 
@@ -225,7 +225,7 @@ impl ExternalHandler {
         );
 
       if !should_be_bundled {
-        return Some(format!("{} {}", external_type, request));
+        return Some(format!("{external_type} {request}"));
       }
     }
     None
@@ -259,12 +259,12 @@ impl ExternalHandler {
     // also have no need for customization as they're already resolved.
     if !is_local {
       if request == "next" {
-        return Ok(Some(format!("commonjs {}", request)));
+        return Ok(Some(format!("commonjs {request}")));
       }
 
       // Handle React packages
       if REACT_PACKAGES_REGEX.is_match(&request) && !is_app_layer {
-        return Ok(Some(format!("commonjs {}", request)));
+        return Ok(Some(format!("commonjs {request}")));
       }
 
       // Skip modules that should not be external
@@ -296,7 +296,7 @@ impl ExternalHandler {
     if should_use_react_server_condition(layer)
       && request == "next/dist/compiled/@vercel/og/index.node.js"
     {
-      return Ok(Some(format!("module {}", request)));
+      return Ok(Some(format!("module {request}")));
     }
 
     // Specific Next.js imports that should remain external
@@ -309,15 +309,15 @@ impl ExternalHandler {
       }
 
       if NEXT_SERVER_REGEX.is_match(&request) {
-        return Ok(Some(format!("commonjs {}", request)));
+        return Ok(Some(format!("commonjs {request}")));
       }
 
       if NEXT_SHARED_CJS_REGEX.test(&request) || NEXT_COMPILED_CJS_REGEX.is_match(&request) {
-        return Ok(Some(format!("commonjs {}", request)));
+        return Ok(Some(format!("commonjs {request}")));
       }
 
       if NEXT_SHARED_ESM_REGEX.test(&request) || NEXT_COMPILED_MJS_REGEX.is_match(&request) {
-        return Ok(Some(format!("module {}", request)));
+        return Ok(Some(format!("module {request}")));
       }
 
       return Ok(resolve_next_external(&request));
@@ -393,7 +393,7 @@ impl ExternalHandler {
       return Ok(None);
     }
 
-     // Webpack itself has to be compiled because it doesn't always use module relative paths
+    // Webpack itself has to be compiled because it doesn't always use module relative paths
     if WEBPACK_CSS_LOADER_REGEX.is_match(&res) {
       return Ok(None);
     }
@@ -405,7 +405,7 @@ impl ExternalHandler {
 
       // We need to resolve all the external package dirs initially.
       for pkg in &self.transpiled_packages {
-        let pkg_request = format!("{}/package.json", pkg);
+        let pkg_request = format!("{pkg}/package.json");
         let pkg_res = resolve_external(
           self.dir.to_string(),
           &self.config.experimental.esm_externals,
@@ -457,16 +457,12 @@ impl ExternalHandler {
 
 static EXTERNAL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
   let path_separators = r"[/\\]";
-  let optional_esm_part = format!(
-    r"(({})esm{})?{}",
-    path_separators, path_separators, path_separators
-  );
+  let optional_esm_part = format!(r"(({path_separators})esm{path_separators})?{path_separators}",);
   let external_file_end = r"(\.external(\.js)?)$";
-  let next_dist = format!(r"next{}", path_separators);
+  let next_dist = format!(r"next{path_separators}");
 
   Regex::new(&format!(
-    r"{}{}.*{}",
-    next_dist, optional_esm_part, external_file_end
+    r"{next_dist}{optional_esm_part}.*{external_file_end}"
   ))
   .unwrap()
 });
@@ -494,7 +490,7 @@ pub fn resolve_next_external(local_res: &str) -> Option<String> {
     let normalized_path = NEXT_DIST_REPLACE_PATTERN.replace(local_res, "next/dist");
     let normalized_path = normalize_path_sep(&normalized_path);
 
-    Some(format!("commonjs {}", normalized_path))
+    Some(format!("commonjs {normalized_path}"))
   } else {
     None
   }
@@ -555,7 +551,6 @@ pub async fn resolve_external(
   let mut res: Option<String> = None;
   let mut is_esm = false;
 
-  // Determine preference order for ESM vs Node resolution
   let prefer_esm_options = if esm_externals && is_esm_requested {
     vec![true, false]
   } else {
@@ -599,12 +594,12 @@ pub async fn resolve_external(
       continue;
     }
 
-    if let Some(callback) = &is_local_callback {
+    if let Some(is_local_callback) = &is_local_callback {
       if let Some(ref resolved) = res {
         return Ok(ResolveResult {
           res: None,
           is_esm: false,
-          local_res: callback(resolved),
+          local_res: is_local_callback(resolved),
         });
       }
     }
@@ -614,13 +609,13 @@ pub async fn resolve_external(
     // package that'll be available at runtime. If it's not identical,
     // we need to bundle the code (even if it _should_ be external).
     if base_resolve_check {
-      let base_resolve_options = if is_esm {
+      let resolve_options = if is_esm {
         base_esm_resolve_options
       } else {
         base_resolve_options
       };
 
-      let base_resolve = get_resolve(Some(base_resolve_options.clone()));
+      let base_resolve = get_resolve(Some(resolve_options.clone()));
 
       let (base_res, base_is_esm) = match base_resolve(dir.to_string(), request.to_string()).await {
         Ok((resolved_path, resolved_is_esm)) => (resolved_path, resolved_is_esm),
