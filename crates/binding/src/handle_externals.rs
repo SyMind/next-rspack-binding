@@ -457,9 +457,9 @@ impl ExternalHandler {
 
 static EXTERNAL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
   let path_separators = r"[/\\]";
-  let optional_esm_part = format!(r"(({path_separators})esm{path_separators})?{path_separators}",);
+  let optional_esm_part = format!(r"(({path_separators})esm)?{path_separators}",);
   let external_file_end = r"(\.external(\.js)?)$";
-  let next_dist = format!(r"next{path_separators}");
+  let next_dist = format!(r"next{path_separators}dist");
 
   Regex::new(&format!(
     r"{next_dist}{optional_esm_part}.*{external_file_end}"
