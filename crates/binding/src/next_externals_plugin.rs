@@ -16,9 +16,9 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{config_shared::NextConfigComplete, handle_externals::ExternalHandler};
 
-const SUPPORTED_NATIVE_MODULES: &[&str] = &["buffer", "events", "assert", "util", "async_hooks"];
+static SUPPORTED_NATIVE_MODULES: &[&str] = &["buffer", "events", "assert", "util", "async_hooks"];
 
-const SUPPORTED_EDGE_POLYFILLS: LazyLock<FxHashSet<&'static str>> =
+static SUPPORTED_EDGE_POLYFILLS: LazyLock<FxHashSet<&'static str>> =
   LazyLock::new(|| SUPPORTED_NATIVE_MODULES.iter().copied().collect());
 
 fn get_edge_polyfilled_modules() -> ExternalItem {
@@ -83,6 +83,7 @@ async fn handle_webpack_external_for_edge_runtime(
   })
 }
 
+#[derive(Debug)]
 pub struct NextExternalsPluginOptions {
   pub compiler_type: String,
   pub config: NextConfigComplete,
@@ -102,6 +103,7 @@ pub struct NextExternalsPlugin {
 }
 
 impl NextExternalsPlugin {
+  #[allow(dead_code)]
   pub fn new(options: NextExternalsPluginOptions) -> Self {
     let NextExternalsPluginOptions {
       compiler_type,
@@ -215,16 +217,16 @@ impl Plugin for NextExternalsPlugin {
                   };
                   let resolver = ctx.resolver_factory.get(merged_options);
 
-                  Box::new(move |context: String, request: String| {
+                  Box::new(move |resolve_context: String, request_to_resolve: String| {
                     let resolver = resolver.clone();
                     Box::pin(async move {
                       let resolve_result = resolver
-                        .resolve(Path::new(&context), &request)
+                        .resolve(Path::new(&resolve_context), &request_to_resolve)
                         .await
                         .to_rspack_result()?;
                       Ok(match resolve_result {
                         ResolveResult::Resource(resource) => {
-                          let is_esm = if resource.path.ends_with(".js") {
+                          let is_esm = if resource.path.as_str().ends_with(".js") {
                             resource.description_data.as_ref().is_some_and(|description_data| {
                               if let Some(object) = description_data.json().as_object() {
                                 object.get("type").is_some_and(|v| v.as_str() == Some("module"))
@@ -233,7 +235,7 @@ impl Plugin for NextExternalsPlugin {
                               }
                             })
                           } else {
-                            resource.path.ends_with(".mjs")
+                            resource.path.as_str().ends_with(".mjs")
                           };
                           (Some(resource.full_path()), is_esm)
                         }

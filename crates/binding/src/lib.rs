@@ -17,6 +17,7 @@ use crate::{
 extern crate napi_derive;
 extern crate rspack_binding_builder;
 
+#[derive(Debug)]
 #[napi(object, object_to_js = false)]
 pub struct NapiExperimentalConfig {
   pub esm_externals: Option<Either<String, bool>>,
@@ -48,6 +49,7 @@ impl From<NapiExperimentalConfig> for ExperimentalConfig {
   }
 }
 
+#[derive(Debug)]
 #[napi(object, object_to_js = false)]
 pub struct NapiNextConfigComplete {
   pub experimental: NapiExperimentalConfig,
@@ -67,6 +69,7 @@ impl From<NapiNextConfigComplete> for NextConfigComplete {
   }
 }
 
+#[derive(Debug)]
 #[napi(object, object_to_js = false)]
 pub struct NapiNextExternalsPluginOptions {
   pub compiler_type: String,
