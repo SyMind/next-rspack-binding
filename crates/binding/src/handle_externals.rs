@@ -531,6 +531,7 @@ type GetResolveFn =
   Arc<dyn Fn(Option<ResolveOptionsWithDependencyType>) -> ResolveFn + Send + Sync + 'static>;
 type IsLocalCallbackFn = Box<dyn Fn(&str) -> Option<String> + Send + Sync + 'static>;
 
+#[allow(clippy::too_many_arguments)]
 pub async fn resolve_external(
   dir: String,
   esm_externals_config: &EsmExternalsConfig,

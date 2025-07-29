@@ -1,13 +1,13 @@
 {
   "name": "@next-rspack/core",
-  "version": "0.0.3",
-  "homepage": "https://github.com/rspack-contrib/rspack-binding-template",
+  "version": "0.0.1-canary.0",
+  "homepage": "https://github.com/SyMind/next-rspack-binding",
   "bugs": {
-    "url": "https://github.com/rspack-contrib/rspack-binding-template/issues"
+    "url": "https://github.com/SyMind/next-rspack-binding/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rspack-contrib/rspack-binding-template.git"
+    "url": "git+https://github.com/SyMind/next-rspack-binding.git"
   },
   "packageManager": "pnpm@10.13.1",
   "main": "lib/index.js",
