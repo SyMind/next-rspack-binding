@@ -8,7 +8,7 @@ importers:
 
   .:
     dependencies:
-      '@rspack-template/binding':
+      '@next-rspack/binding':
         specifier: workspace:*
         version: link:crates/binding
       '@rspack/core':
@@ -39,7 +39,7 @@ importers:
 
   examples/plugin:
     dependencies:
-      '@rspack-template/core':
+      '@next-rspack/core':
         specifier: workspace:*
         version: link:../..
 

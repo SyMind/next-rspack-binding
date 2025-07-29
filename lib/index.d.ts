@@ -1,17 +1,15 @@
 import * as RspackCore from '@rspack/core';
+import { NapiNextExternalsPluginOptions } from '@next-rspack/binding';
 
-/**
- * MyBannerPlugin class that adds a banner to the output main.js file.
- */
-declare class MyBannerPlugin {
+declare class NextExternalsPlugin {
   /**
    * The banner text to be added to the output file.
    */
-  constructor(banner: string);
+  constructor(options: NapiNextExternalsPluginOptions);
 }
 
 declare const core: typeof RspackCore & {
-  MyBannerPlugin: typeof MyBannerPlugin;
+  NextExternalsPlugin: typeof NextExternalsPlugin;
 };
 
 export = core;

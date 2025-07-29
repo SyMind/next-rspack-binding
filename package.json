@@ -24,12 +24,12 @@
   ],
   "scripts": {
     "prepare": "husky",
-    "build": "pnpm run --filter @rspack-template/binding build",
+    "build": "pnpm run --filter @next-rspack/binding build",
     "lint-staged": "lint-staged"
   },
   "dependencies": {
     "@rspack/core": "1.4.10",
-    "@rspack-template/binding": "workspace:*"
+    "@next-rspack/binding": "workspace:*"
   },
   "devDependencies": {
     "@taplo/cli": "^0.7.0",

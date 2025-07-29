@@ -2,6 +2,6 @@
   "name": "plugin",
   "private": true,
   "dependencies": {
-    "@rspack-template/core": "workspace:*"
+    "@next-rspack/core": "workspace:*"
   }
 }
