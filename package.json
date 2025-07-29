@@ -1,6 +1,6 @@
 {
   "name": "@next-rspack/core",
-  "version": "0.0.3",
+  "version": "0.0.1-canary.0",
   "homepage": "https://github.com/rspack-contrib/rspack-binding-template",
   "bugs": {
     "url": "https://github.com/rspack-contrib/rspack-binding-template/issues"
