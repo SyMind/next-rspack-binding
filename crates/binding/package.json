@@ -1,6 +1,6 @@
 {
   "name": "@next-rspack/binding",
-  "version": "0.0.1-canary.0",
+  "version": "0.0.1-canary.1",
   "homepage": "https://github.com/SyMind/next-rspack-binding",
   "bugs": {
     "url": "https://github.com/SyMind/next-rspack-binding/issues"
